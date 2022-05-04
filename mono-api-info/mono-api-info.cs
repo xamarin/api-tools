@@ -1680,6 +1680,11 @@ namespace Mono.ApiTools {
 
 		bool SkipAttribute (CustomAttribute attribute)
 		{
+			switch (attribute.AttributeType.FullName) {
+			case "System.Runtime.CompilerServices.NativeIntegerAttribute":
+				return false;
+			}
+
 			if (!state.TypeHelper.IsPublic (attribute))
 				return true;
 			
