@@ -202,6 +202,10 @@ namespace Mono.ApiTools {
 			RemoveAttributes (source);
 			RemoveAttributes (target);
 
+			// Change 'protected internal' into 'protected'
+			RemoveInternalFromProtectedInternal (source);
+			RemoveInternalFromProtectedInternal (target);
+
 			return base.Equals (source, target, changes);
 		}
 
@@ -556,6 +560,16 @@ namespace Mono.ApiTools {
 
 			foreach (var el in element.Elements ())
 				RemoveAttributes (el);
+		}
+		protected void RemoveInternalFromProtectedInternal (XElement element)
+		{
+			var attrib = element.GetMethodAttributes ();
+
+			// Changing between 'protected' and 'protected internal' is not visible in the API, so remove the 'internal' part.
+			if ((attrib & MethodAttributes.FamORAssem) == MethodAttributes.FamORAssem) {
+				attrib = (attrib & ~MethodAttributes.MemberAccessMask) | MethodAttributes.Family;
+				element.Attribute ("attrib").Value = ((int) attrib).ToString ();
+			}
 		}
 
 		protected void RenderAttributes (XElement source, XElement target, ApiChanges changes)
