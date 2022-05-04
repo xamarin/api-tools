@@ -121,7 +121,7 @@ namespace Mono.ApiTools {
 			if (is_pointer)
 				sb.Remove (sb.Length - 1, 1);
 
-			type = GetTypeName (sb.Replace ('+', '.').ToString (), state);
+			type = GetElementTypeName (self, sb.Replace ('+', '.').ToString (), state);
 			sb.Length = 0;
 			if (is_ref)
 				sb.Append (self.GetAttribute ("direction")).Append (' ');
@@ -137,13 +137,13 @@ namespace Mono.ApiTools {
 			return sb.ToString ();
 		}
 
-		static string GetTypeName (string type, State state)
+		static string GetElementTypeName (XElement element, string type, State state)
 		{
 			int pos = type.IndexOf ('`');
 			if (pos >= 0) {
 				int end = type.LastIndexOf (']');
 				string subtype = type.Substring (pos + 3, end - pos - 3);
-				return type.Substring (0, pos) + state.Formatter.LesserThan + GetTypeName (subtype, state) + state.Formatter.GreaterThan;
+				return type.Substring (0, pos) + state.Formatter.LesserThan + GetElementTypeName (element, subtype, state) + state.Formatter.GreaterThan;
 			}
 
 			switch (type) {
@@ -184,12 +184,27 @@ namespace Mono.ApiTools {
 			case "System.nfloat":
 				return "nfloat";
 			case "System.IntPtr":
-				return "IntPtr";
+				return IsNativeInteger (element) ? "nint" : "IntPtr";
+			case "System.UIntPtr":
+				return IsNativeInteger (element) ? "nuint" : "UIntPtr";
 			default:
 				if (type.StartsWith (state.Namespace, StringComparison.Ordinal))
 					type = type.Substring (state.Namespace.Length + 1);
 				return type;
 			}
+		}
+
+		static bool IsNativeInteger (XElement element)
+		{
+			var attribs = element.Descendants ("attributes", "attribute");
+			if (attribs is null)
+				return false;
+			foreach (var attrib in attribs) {
+				if (attrib.GetAttribute ("name") == "System.Runtime.CompilerServices.NativeIntegerAttribute")
+					return true;
+			}
+
+			return false;
 		}
 
 		public static MethodAttributes GetMethodAttributes (this XElement element)
