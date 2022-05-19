@@ -9,7 +9,7 @@ namespace Mono.ApiTools {
 	class ApiChange
 	{
 		public string Header;
-		public StringBuilder Member = new StringBuilder ();
+		public TextChunk Member = new TextChunk ();
 		public bool Breaking;
 		public bool AnyChange;
 		public bool HasIgnoredChanges;

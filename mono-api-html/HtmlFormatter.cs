@@ -46,13 +46,7 @@ namespace Mono.ApiTools {
 		public override string LesserThan => "&lt;";
 		public override string GreaterThan => "&gt;";
 
-		protected void Indent (TextWriter output)
-		{
-			 for (int i = 0; i < State.Indent; i++)
-			 	output.Write ("\t");
-		}
-
-		public override void BeginDocument (TextWriter output, string title)
+		public override void BeginDocument (string title)
 		{
 			output.WriteLine ("<div>");
 			if (State.Colorize) {
@@ -136,7 +130,7 @@ namespace Mono.ApiTools {
 </script>");
 		}
 
-		public override void BeginAssembly (TextWriter output)
+		public override void BeginAssembly ()
 		{
 			output.WriteLine ($"<h1>{State.Assembly}.dll</h1>");
 			if (!State.IgnoreNonbreaking) {
@@ -147,7 +141,7 @@ namespace Mono.ApiTools {
 			output.WriteLine ("<div data-is-topmost>");
 		}
 
-		public override void EndAssembly (TextWriter output)
+		public override void EndAssembly ()
 		{
 			output.WriteLine ("</div> <!-- end topmost div -->");
 			output.WriteLine ("</div>");
@@ -155,48 +149,48 @@ namespace Mono.ApiTools {
 				output.WriteLine ($"<!-- BreakingChangesDetected -->");
 		}
 
-		public override void BeginNamespace (TextWriter output, string action)
+		public override void BeginNamespace (string action)
 		{
 			output.WriteLine ($"<!-- start namespace {State.Namespace} --> <div>");
 			output.WriteLine ($"<h2>{action}Namespace {State.Namespace}</h2>");
 		}
 
-		public override void EndNamespace (TextWriter output)
+		public override void EndNamespace ()
 		{
 			output.WriteLine ($"</div> <!-- end namespace {State.Namespace} -->");
 		}
 
-		public override void BeginTypeAddition (TextWriter output)
+		public override void BeginTypeAddition ()
 		{
 			output.WriteLine ($"<div> <!-- start type {State.Type} -->");
 			output.WriteLine ($"<h3>New Type {State.Namespace}.{State.Type}</h3>");
 			output.WriteLine ("<pre class='added' data-is-non-breaking>");
 		}
 
-		public override void EndTypeAddition (TextWriter output)
+		public override void EndTypeAddition ()
 		{
 			output.WriteLine ("</pre>");
 			output.WriteLine ($"</div> <!-- end type {State.Type} -->");
 		}
 
-		public override void BeginTypeModification (TextWriter output)
+		public override void BeginTypeModification ()
 		{
 			output.WriteLine ($"<!-- start type {State.Type} --> <div>");
 			output.WriteLine ($"<h3>Type Changed: {State.Namespace}.{State.Type}</h3>");
 		}
 
-		public override void EndTypeModification (TextWriter output)
+		public override void EndTypeModification ()
 		{
 			output.WriteLine ($"</div> <!-- end type {State.Type} -->");
 		}
 
-		public override void BeginTypeRemoval (TextWriter output)
+		public override void BeginTypeRemoval ()
 		{
 			output.Write ($"<h3>Removed Type <span class='breaking' data-is-breaking>{State.Namespace}.{State.Type}</span></h3>");
 			AnyBreakingChanges = true;
 		}
 
-		public override void BeginMemberAddition (TextWriter output, IEnumerable<XElement> list, MemberComparer member)
+		public override void BeginMemberAddition (IEnumerable<XElement> list, MemberComparer member)
 		{
 			output.WriteLine ("<div>");
 			if (State.BaseType == "System.Enum") {
@@ -206,10 +200,10 @@ namespace Mono.ApiTools {
 				output.WriteLine ("<p>Added {0}:</p>", list.Count () > 1 ? member.GroupName : member.ElementName);
 				output.WriteLine ("<pre>");
 			}
-			State.Indent++;
+			IndentLevel++;
 		}
 
-		public override void AddMember (TextWriter output, MemberComparer member, bool isInterfaceBreakingChange, string obsolete, string description)
+		public override void AddMember (MemberComparer member, bool isInterfaceBreakingChange, string obsolete, string description)
 		{
 			output.Write ("<span class='added added-{0} {1}' {2}>", member.ElementName, isInterfaceBreakingChange ? "breaking" : string.Empty, isInterfaceBreakingChange ? "data-is-breaking" : "data-is-non-breaking");
 			output.Write ($"{obsolete}{description}");
@@ -218,25 +212,25 @@ namespace Mono.ApiTools {
 				AnyBreakingChanges = true;
 		}
 
-		public override void EndMemberAddition (TextWriter output)
+		public override void EndMemberAddition ()
 		{
-			State.Indent--;
+			IndentLevel--;
 			output.WriteLine ("</pre>");
 			output.WriteLine ("</div>");
 		}
 
-		public override void BeginMemberModification (TextWriter output, string sectionName)
+		public override void BeginMemberModification (string sectionName)
 		{
 			output.WriteLine ($"<p>{sectionName}:</p>");
 			output.WriteLine ("<pre>");
 		}
 
-		public override void EndMemberModification (TextWriter output)
+		public override void EndMemberModification ()
 		{
 			output.WriteLine ("</pre>");
 		}
 
-		public override void BeginMemberRemoval (TextWriter output, IEnumerable<XElement> list, MemberComparer member)
+		public override void BeginMemberRemoval (IEnumerable<XElement> list, MemberComparer member)
 		{
 			if (State.BaseType == "System.Enum") {
 				output.WriteLine ("<p>Removed value{0}:</p>", list.Count () > 1 ? "s" : String.Empty);
@@ -246,16 +240,16 @@ namespace Mono.ApiTools {
 				output.WriteLine ("<p>Removed {0}:</p>", list.Count () > 1 ? member.GroupName : member.ElementName);
 				output.WriteLine ("<pre>");
 			}
-			State.Indent++;
+			IndentLevel++;
 		}
 
-		public override void RemoveMember (TextWriter output, MemberComparer member, bool breaking, string obsolete, string description)
+		public override void RemoveMember (MemberComparer member, bool breaking, string obsolete, string description)
 		{
-			Indent (output);
+			WriteIndentation ();
 			output.Write ("<span class='removed removed-{0} {2}' {1}>", member.ElementName, breaking ? "data-is-breaking" : "data-is-non-breaking", breaking ? "breaking" : string.Empty);
 			if (obsolete.Length > 0) {
 				output.Write (obsolete);
-				Indent (output);
+				WriteIndentation ();
 			}
 			output.Write (description);
 			output.WriteLine ("</span>");
@@ -263,8 +257,9 @@ namespace Mono.ApiTools {
 				AnyBreakingChanges = true;
 		}
 
-		public override void RenderObsoleteMessage (StringBuilder output, MemberComparer member, string description, string optionalObsoleteMessage)
+		public override void RenderObsoleteMessage (TextChunk chunk, MemberComparer member, string description, string optionalObsoleteMessage)
 		{
+			var output = chunk.GetStringBuilder (this);
 			output.Append ($"<span class='obsolete obsolete-{member.ElementName}' data-is-non-breaking>");
 			output.Append ("[Obsolete (");
 			if (!String.IsNullOrEmpty (optionalObsoleteMessage))
@@ -274,14 +269,15 @@ namespace Mono.ApiTools {
 			output.Append ("</span>");
 		}
 
-		public override void EndMemberRemoval (TextWriter output)
+		public override void EndMemberRemoval ()
 		{
-			State.Indent--;
+			IndentLevel--;
 			output.WriteLine ("</pre>");;
 		}
 
-		public override void DiffAddition (StringBuilder output, string text, bool breaking)
+		public override void DiffAddition (TextChunk chunk, string text, bool breaking)
 		{
+			var output = chunk.GetStringBuilder (this);
 			output.Append ("<span class='added ");
 			if (breaking)
 				output.Append ("added-breaking-inline");
@@ -290,18 +286,20 @@ namespace Mono.ApiTools {
 			output.Append ("</span>");
 		}
 
-		public override void DiffModification (StringBuilder output, string old, string @new, bool breaking)
+		public override void DiffModification (TextChunk chunk, string old, string @new, bool breaking)
 		{
+			var output = chunk.GetStringBuilder (this);
 			if (old.Length > 0)
-				DiffRemoval (output, old, breaking);
+				DiffRemoval (chunk, old, breaking);
 			if (old.Length > 0 && @new.Length > 0)
 				output.Append (' ');
 			if (@new.Length > 0)
-				DiffAddition (output, @new, false);
+				DiffAddition (chunk, @new, false);
 		}
 
-		public override void DiffRemoval (StringBuilder output, string text, bool breaking)
+		public override void DiffRemoval (TextChunk chunk, string text, bool breaking)
 		{
+			var output = chunk.GetStringBuilder (this);
 			output.Append ("<span class='removed removed-inline ");
 			if (breaking)
 				output.Append ("removed-breaking-inline");
@@ -310,10 +308,10 @@ namespace Mono.ApiTools {
 			output.Append ("</span>");
 		}
 
-		public override void Diff (TextWriter output, ApiChange apichange)
+		public override void Diff (ApiChange apichange)
 		{
 			output.Write ("<div {0}>", apichange.Breaking ? "data-is-breaking" : "data-is-non-breaking");
-			foreach (var line in apichange.Member.ToString ().Split (new[] { Environment.NewLine }, 0)) {
+			foreach (var line in apichange.Member.GetStringBuilder (this).ToString ().Split (new[] { Environment.NewLine }, 0)) {
 				output.Write ('\t');
 				output.WriteLine (line);
 			}

@@ -35,19 +35,19 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace Mono.ApiTools {
 
 	class State {
-		public TextWriter Output { get; set; }
 		public Formatter Formatter { get; set; }
+		public Formatter [] Formatters { get; set; }
 		public string Assembly { get; set; }
 		public string Namespace { get; set; }
 		public string Type { get; set; }
 		public string BaseType { get; set; }
 		public string Parent { get; set; }
-		public int Indent { get; set; }
 		public List<Regex> IgnoreAdded { get; } = new List<Regex> ();
 		public List<Regex> IgnoreNew { get; } = new List<Regex> ();
 		public List<Regex> IgnoreRemoved { get; } = new List<Regex> ();
@@ -75,13 +75,11 @@ namespace Mono.ApiTools {
 		public static int Main (string[] args)
 		{
 			var showHelp = false;
-			string diff = null;
 			List<string> extra = null;
 			var config = new ApiDiffFormattedConfig ();
 
 			var options = new Mono.Options.OptionSet {
 				{ "h|help", "Show this help", v => showHelp = true },
-				{ "d|o|out=|output=|diff=", "HTML diff file out output (omit for stdout)", v => diff = v },
 				{ "i|ignore=", "Ignore new, added, and removed members whose description matches a given C# regular expression (see below).",
 					v => {
 						var r = new Regex (v);
@@ -113,7 +111,8 @@ namespace Mono.ApiTools {
 				{ "ignore-nonbreaking", "Ignore all nonbreaking changes", v => config.IgnoreNonbreaking = true },
 				{ "v|verbose:", "Verbosity level; when set, will print debug messages",
 				  (int? v) => config.Verbosity = v ?? (config.Verbosity + 1)},
-				{ "md|markdown", "Output markdown instead of HTML", v => config.Formatter = ApiDiffFormatter.Markdown },
+				{ "md|markdown=", "Output markdown to the specified file", v => config.MarkdownOutput = v },
+				{ "html=", "Output html to the specified file", v => config.HtmlOutput = v },
 				new Mono.Options.ResponseFileSource (),
 			};
 
@@ -148,33 +147,23 @@ namespace Mono.ApiTools {
 
 			var input = extra [0];
 			var output = extra [1];
-			if (extra.Count == 3 && diff == null)
-				diff = extra [2];
+			if (extra.Count > 2)
+				config.HtmlOutput = extra [2];
 
-			TextWriter outputStream = null;
 			try {
-				if (!string.IsNullOrEmpty (diff))
-					outputStream = new StreamWriter (diff);
-
-				ApiDiffFormatted.Generate (input, output, outputStream ?? Console.Out, config);
+				ApiDiffFormatted.Generate (input, output, config);
 			} catch (Exception e) {
 				Console.WriteLine (e);
 				return 1;
-			} finally {
-				outputStream?.Dispose ();
 			}
 			return 0;
 		}
 	}
 #endif
 
-	public enum ApiDiffFormatter {
-		Html,
-		Markdown,
-	}
-
 	public class ApiDiffFormattedConfig {
-		public ApiDiffFormatter Formatter { get; set; }
+		public string HtmlOutput { get; set; }
+		public string MarkdownOutput { get; set; }
 		public List<Regex> IgnoreAdded { get; set; } = new List<Regex> ();
 		public List<Regex> IgnoreNew { get; set; } = new List<Regex> ();
 		public List<Regex> IgnoreRemoved { get; set; } = new List<Regex> ();
@@ -189,50 +178,39 @@ namespace Mono.ApiTools {
 	}
 
 	public static class ApiDiffFormatted {
-
-		public static void Generate (Stream firstInfo, Stream secondInfo, TextWriter outStream, ApiDiffFormattedConfig config = null)
+		public static void Generate (string firstInfo, string secondInfo, ApiDiffFormattedConfig config = null)
 		{
 			var state = CreateState (config);
-			Generate (firstInfo, secondInfo, outStream, state);
+			Generate (firstInfo, secondInfo, state);
 		}
 
-		public static void Generate (string firstInfo, string secondInfo, TextWriter outStream, ApiDiffFormattedConfig config = null)
-		{
-			var state = CreateState (config);
-			Generate (firstInfo, secondInfo, outStream, state);
-		}
-
-		internal static void Generate (string firstInfo, string secondInfo, TextWriter outStream, State state)
+		internal static void Generate (string firstInfo, string secondInfo, State state)
 		{
 			var ac = new AssemblyComparer (firstInfo, secondInfo, state);
-			Generate (ac, outStream, state);
+			Generate (ac, state);
 		}
 
-		internal static void Generate (Stream firstInfo, Stream secondInfo, TextWriter outStream, State state)
+		static void Generate (AssemblyComparer ac, State state)
 		{
-			var ac = new AssemblyComparer (firstInfo, secondInfo, state);
-			Generate (ac, outStream, state);
-		}
+			ac.Compare ();
 
-		static void Generate (AssemblyComparer ac, TextWriter outStream, State state)
-		{
-			var diffHtml = String.Empty;
-			using (var writer = new StringWriter ()) {
-				state.Output = writer;
-				ac.Compare ();
-				diffHtml = state.Output.ToString ();
-			}
+			foreach (var formatter in state.Formatters) {
+				formatter.Flush ();
+				if (formatter.StringBuilder.Length > 0) {
+					var title = $"{ac.SourceAssembly}.dll";
+					if (ac.SourceAssembly != ac.TargetAssembly)
+						title += $" vs {ac.TargetAssembly}.dll";
 
-			if (diffHtml.Length > 0) {
-				var title = $"{ac.SourceAssembly}.dll";
-				if (ac.SourceAssembly != ac.TargetAssembly)
-					title += $" vs {ac.TargetAssembly}.dll";
-
-				state.Formatter.BeginDocument (outStream, $"API diff: {title}");
-				state.Formatter.BeginAssembly (outStream);
-				outStream.Write (diffHtml);
-				state.Formatter.EndAssembly (outStream);
-				state.Formatter.EndDocument (outStream);
+					var sb = formatter.StringBuilder;
+					formatter.PushOutput ();
+					formatter.BeginDocument ($"API diff: {title}");
+					formatter.BeginAssembly ();
+					formatter.Write (sb);
+					formatter.EndAssembly ();
+					formatter.EndDocument ();
+					formatter.Flush ();
+				}
+				File.WriteAllText (formatter.OutputPath, formatter.StringBuilder.ToString ());
 			}
 		}
 
@@ -257,21 +235,19 @@ namespace Mono.ApiTools {
 			state.IgnoreNew.AddRange (config.IgnoreNew);
 			state.IgnoreRemoved.AddRange (config.IgnoreRemoved);
 
-			switch (config.Formatter)
-			{
-				case ApiDiffFormatter.Html:
-					state.Formatter = new HtmlFormatter(state);
-					break;
-				case ApiDiffFormatter.Markdown:
-					state.Formatter = new MarkdownFormatter(state);
-					break;
-				default:
-					throw new ArgumentException("Invlid formatter specified.");
+			var formatters = new List<Formatter> ();
+			if (!string.IsNullOrWhiteSpace (config.HtmlOutput))
+				formatters.Add (new HtmlFormatter (state) { OutputPath = config.HtmlOutput });
+			if (!string.IsNullOrWhiteSpace (config.MarkdownOutput))
+				formatters.Add (new MarkdownFormatter (state) { OutputPath = config.MarkdownOutput });
+			if (formatters.Count > 1) {
+				state.Formatter = new MultiplexedFormatter (state, formatters.ToArray ());
+			} else if (formatters.Count == 0) {
+				throw new ArgumentException ("No output files.");
+			} else {
+				state.Formatter = formatters [0];
 			}
-
-			// unless specified default to HTML
-			if (state.Formatter == null)
-				state.Formatter = new HtmlFormatter (state);
+			state.Formatters = formatters.ToArray ();
 
 			if (state.IgnoreNonbreaking) {
 				state.IgnoreAddedPropertySetters = true;
