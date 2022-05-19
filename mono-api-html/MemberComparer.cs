@@ -133,13 +133,13 @@ namespace Mono.ApiTools {
 				if (State.IgnoreAdded.Any (re => re.IsMatch (memberDescription)))
 					continue;
 				if (!a) {
-					Formatter.BeginMemberAddition (Output, elements, this);
+					Formatter.BeginMemberAddition (elements, this);
 					a = true;
 				}
 				Added (item, false);
 			}
 			if (a)
-				Formatter.EndMemberAddition (Output);
+				Formatter.EndMemberAddition ();
 		}
 
 		void Modify (ApiChanges modified)
@@ -147,13 +147,13 @@ namespace Mono.ApiTools {
 			foreach (var changes in modified) {
 				if (State.IgnoreNonbreaking && changes.Value.All (c => !c.Breaking))
 					continue;
-				Formatter.BeginMemberModification (Output, changes.Key);
+				Formatter.BeginMemberModification (changes.Key);
 				foreach (var element in changes.Value) {
 					if (State.IgnoreNonbreaking && !element.Breaking)
 						continue;
-					Formatter.Diff (Output, element);
+					Formatter.Diff (element);
 				}
-				Formatter.EndMemberModification (Output);
+				Formatter.EndMemberModification ();
 			}
 		}
 
@@ -169,14 +169,14 @@ namespace Mono.ApiTools {
 				if (State.IgnoreNonbreaking && !IsBreakingRemoval (item))
 					continue;
 				if (!r) {
-					Formatter.BeginMemberRemoval (Output, elements, this);
+					Formatter.BeginMemberRemoval (elements, this);
 					first = true;
 					r = true;
 				}
 				Removed (item);
 			}
 			if (r)
-				Formatter.EndMemberRemoval (Output);
+				Formatter.EndMemberRemoval ();
 		}
 			
 		public abstract string GetDescription (XElement e);
@@ -216,7 +216,7 @@ namespace Mono.ApiTools {
 				Output.WriteLine ();
 			Indent ();
 			bool isInterfaceBreakingChange = !wasParentAdded && IsInInterface (target);
-			Formatter.AddMember (Output, this, isInterfaceBreakingChange, o.ToString (), GetDescription (target));
+			Formatter.AddMember (this, isInterfaceBreakingChange, o.ToString (), GetDescription (target));
 			first = false;
 		}
 
@@ -232,7 +232,7 @@ namespace Mono.ApiTools {
 
 			bool is_breaking = IsBreakingRemoval (source);
 
-			Formatter.RemoveMember (Output, this, is_breaking, o.ToString (), GetDescription (source));
+			Formatter.RemoveMember (this, is_breaking, o.ToString (), GetDescription (source));
 			first = false;
 		}
 

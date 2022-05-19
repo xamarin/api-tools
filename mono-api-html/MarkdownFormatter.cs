@@ -43,50 +43,50 @@ namespace Mono.ApiTools {
 		public override string LesserThan => "<";
 		public override string GreaterThan => ">";
 
-		public override void BeginDocument (TextWriter output, string title)
+		public override void BeginDocument (string title)
 		{
 			output.WriteLine ($"# {title}");
 			output.WriteLine ();
 		}
 
-		public override void BeginAssembly (TextWriter output)
+		public override void BeginAssembly ()
 		{
 			// this serves as ToC (table of content) entries so we skip the "Assembly: " prefix
 			output.WriteLine ($"## {State.Assembly}.dll");
 			output.WriteLine ();
 		}
 
-		public override void BeginNamespace (TextWriter output, string action)
+		public override void BeginNamespace (string action)
 		{
 			output.WriteLine ($"### {action}Namespace {State.Namespace}");
 			output.WriteLine ();
 		}
 
-		public override void BeginTypeAddition (TextWriter output)
+		public override void BeginTypeAddition ()
 		{
 			output.WriteLine ($"#### New Type: {@State.Namespace}.{State.Type}");
 			output.WriteLine ();
 			output.WriteLine ("```csharp");
 		}
 
-		public override void EndTypeAddition (TextWriter output)
+		public override void EndTypeAddition ()
 		{
 			output.WriteLine ("```");
 			output.WriteLine ();
 		}
 
-		public override void BeginTypeModification (TextWriter output)
+		public override void BeginTypeModification ()
 		{
 			output.WriteLine ($"#### Type Changed: {State.Namespace}.{State.Type}");
 			output.WriteLine ();
 		}
 
-		public override void BeginTypeRemoval (TextWriter output)
+		public override void BeginTypeRemoval ()
 		{
 			output.WriteLine ($"#### Removed Type {State.Namespace}.{State.Type}");
 		}
 
-		public override void BeginMemberAddition (TextWriter output, IEnumerable<XElement> list, MemberComparer member)
+		public override void BeginMemberAddition (IEnumerable<XElement> list, MemberComparer member)
 		{
 			if (State.BaseType == "System.Enum") {
 				output.WriteLine ("Added value{0}:", list.Count () > 1 ? "s" : String.Empty);
@@ -97,32 +97,32 @@ namespace Mono.ApiTools {
 			output.WriteLine ("```csharp");
 		}
 
-		public override void AddMember (TextWriter output, MemberComparer member, bool isInterfaceBreakingChange, string obsolete, string description)
+		public override void AddMember (MemberComparer member, bool isInterfaceBreakingChange, string obsolete, string description)
 		{
 			output.Write (obsolete);
 			output.WriteLine (description);
 		}
 
-		public override void EndMemberAddition (TextWriter output)
+		public override void EndMemberAddition ()
 		{
 			output.WriteLine ("```");
 			output.WriteLine ();
 		}
 
-		public override void BeginMemberModification (TextWriter output, string sectionName)
+		public override void BeginMemberModification (string sectionName)
 		{
 			output.WriteLine ($"{sectionName}:");
 			output.WriteLine ();
 			output.WriteLine ("```diff");
 		}
 
-		public override void EndMemberModification (TextWriter output)
+		public override void EndMemberModification ()
 		{
 			output.WriteLine ("```");
 			output.WriteLine ();
 		}
 
-		public override void BeginMemberRemoval (TextWriter output, IEnumerable<XElement> list, MemberComparer member)
+		public override void BeginMemberRemoval (IEnumerable<XElement> list, MemberComparer member)
 		{
 			if (State.BaseType == "System.Enum") {
 				output.WriteLine ("Removed value{0}:", list.Count () > 1 ? "s" : String.Empty);
@@ -133,20 +133,21 @@ namespace Mono.ApiTools {
 			output.WriteLine ("```csharp");
 		}
 
-		public override void RemoveMember (TextWriter output, MemberComparer member, bool is_breaking, string obsolete, string description)
+		public override void RemoveMember (MemberComparer member, bool is_breaking, string obsolete, string description)
 		{
 			output.Write (obsolete);
 			output.WriteLine (description);
 		}
 
-		public override void EndMemberRemoval (TextWriter output)
+		public override void EndMemberRemoval ()
 		{
 			output.WriteLine ("```");
 			output.WriteLine ();
 		}
 
-		public override void RenderObsoleteMessage (StringBuilder output, MemberComparer member, string description, string optionalObsoleteMessage)
+		public override void RenderObsoleteMessage (TextChunk chunk, MemberComparer member, string description, string optionalObsoleteMessage)
 		{
+			var output = chunk.GetStringBuilder (this);
 			output.Append ("[Obsolete (");
 			if (!String.IsNullOrEmpty (optionalObsoleteMessage))
 				output.Append ('"').Append (optionalObsoleteMessage).Append ('"');
@@ -167,31 +168,33 @@ namespace Mono.ApiTools {
 			return cleaned;
 		}
 
-		public override void DiffAddition (StringBuilder output, string text, bool breaking)
+		public override void DiffAddition (TextChunk chunk, string text, bool breaking)
 		{
+			var output = chunk.GetStringBuilder (this);
 			output.Append ("+++");
 			output.Append (text);
 			output.Append ("+++");
 		}
 
-		public override void DiffModification (StringBuilder output, string old, string @new, bool breaking)
+		public override void DiffModification (TextChunk chunk, string old, string @new, bool breaking)
 		{
 			if (old != null && old.Length > 0)
-				DiffAddition (output, old, breaking);
+				DiffAddition (chunk, old, breaking);
 			if (@new != null && @new.Length > 0)
-				DiffRemoval (output, @new, true);
+				DiffRemoval (chunk, @new, true);
 		}
 
-		public override void DiffRemoval (StringBuilder output, string text, bool breaking)
+		public override void DiffRemoval (TextChunk chunk, string text, bool breaking)
 		{
+			var output = chunk.GetStringBuilder (this);
 			output.Append ("---");
 			output.Append (text);
 			output.Append ("---");
 		}
 
-		public override void Diff (TextWriter output, ApiChange apichange)
+		public override void Diff (ApiChange apichange)
 		{
-			foreach (var line in apichange.Member.ToString ().Split (new[] { Environment.NewLine }, 0)) {
+			foreach (var line in apichange.Member.GetStringBuilder (this).ToString ().Split (new[] { Environment.NewLine }, 0)) {
 				if (line.Contains ("+++")) {
 					output.WriteLine ("-{0}", Clean (line, "+++", "---"));
 					output.WriteLine ("+{0}", Clean (line, "---", "+++"));
