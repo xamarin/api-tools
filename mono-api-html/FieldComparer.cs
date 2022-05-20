@@ -106,6 +106,21 @@ namespace Mono.ApiTools {
 			}
 		}
 
+		string GetFullName (XElement element)
+		{
+			var rv = element.GetAttribute ("name");
+			element = element.Parent;
+			while (element is not null) {
+				if (element.Name.LocalName == "assembly")
+					break;
+				var name = element.GetAttribute ("name");
+				if (!string.IsNullOrEmpty (name))
+					rv = name + "." + rv;
+				element = element.Parent;
+			}
+			return rv;
+		}
+
 		public override bool Equals (XElement source, XElement target, ApiChanges changes)
 		{
 			if (base.Equals (source, target, changes))
@@ -150,7 +165,11 @@ namespace Mono.ApiTools {
 						srcValue = "null";
 					if (tgtValue == null)
 						tgtValue = "null";
-					change.AppendModified (srcValue, tgtValue, true);
+
+					// Hardcode that changes to ObjCRuntime.Constants.Version aren't breaking.
+					var fullname = GetFullName (source);
+					var breaking = fullname != "ObjCRuntime.Constants.Version";
+					change.AppendModified (srcValue, tgtValue, breaking);
 				} else if (srcValue != null) {
 					change.Append (" = ");
 					change.Append (srcValue);
