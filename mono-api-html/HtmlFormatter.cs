@@ -41,6 +41,8 @@ namespace Mono.ApiTools {
 		{
 		}
 
+		public bool AnyBreakingChanges;
+
 		public override string LesserThan => "&lt;";
 		public override string GreaterThan => "&gt;";
 
@@ -143,6 +145,8 @@ namespace Mono.ApiTools {
 		{
 			output.WriteLine ("</div> <!-- end topmost div -->");
 			output.WriteLine ("</div>");
+			if (AnyBreakingChanges)
+				output.WriteLine ($"<!-- BreakingChangesDetected -->");
 		}
 
 		public override void BeginNamespace (string action)
@@ -183,6 +187,7 @@ namespace Mono.ApiTools {
 		public override void BeginTypeRemoval ()
 		{
 			output.Write ($"<h3>Removed Type <span class='breaking' data-is-breaking>{State.Namespace}.{State.Type}</span></h3>");
+			AnyBreakingChanges = true;
 		}
 
 		public override void BeginMemberAddition (IEnumerable<XElement> list, MemberComparer member)
@@ -203,6 +208,8 @@ namespace Mono.ApiTools {
 			output.Write ("<span class='added added-{0} {1}' {2}>", member.ElementName, isInterfaceBreakingChange ? "breaking" : string.Empty, isInterfaceBreakingChange ? "data-is-breaking" : "data-is-non-breaking");
 			output.Write ($"{obsolete}{description}");
 			output.WriteLine ("</span>");
+			if (isInterfaceBreakingChange)
+				AnyBreakingChanges = true;
 		}
 
 		public override void EndMemberAddition ()
@@ -228,6 +235,7 @@ namespace Mono.ApiTools {
 			if (State.BaseType == "System.Enum") {
 				output.WriteLine ("<p>Removed value{0}:</p>", list.Count () > 1 ? "s" : String.Empty);
 				output.WriteLine ("<pre class='removed' data-is-breaking>");
+				AnyBreakingChanges = true;
 			} else {
 				output.WriteLine ("<p>Removed {0}:</p>", list.Count () > 1 ? member.GroupName : member.ElementName);
 				output.WriteLine ("<pre>");
@@ -245,6 +253,8 @@ namespace Mono.ApiTools {
 			}
 			output.Write (description);
 			output.WriteLine ("</span>");
+			if (breaking)
+				AnyBreakingChanges = true;
 		}
 
 		public override void RenderObsoleteMessage (TextChunk chunk, MemberComparer member, string description, string optionalObsoleteMessage)
@@ -306,6 +316,8 @@ namespace Mono.ApiTools {
 				output.WriteLine (line);
 			}
 			output.Write ("</div>");
+			if (apichange.Breaking)
+				AnyBreakingChanges = true;
 		}
 	}
 }
