@@ -46,19 +46,18 @@ namespace Mono.ApiTools {
 
 		public State State { get; }
 
-		public TextWriter Output {
-			get { return State.Output; }
+		public Formatter Output {
+			get { return Formatter; }
 		}
 
 		public Formatter Formatter {
 			get { return State.Formatter; }
 		}
 
-		protected TextWriter Indent ()
+		protected Formatter Indent ()
 		{
-			for (int i = 0; i < State.Indent; i++)
-				State.Output.Write ("\t");
-			return State.Output;
+			Output.WriteIndentation ();
+			return Output;
 		}
 
 		public abstract void Added (XElement target, bool wasParentAdded);

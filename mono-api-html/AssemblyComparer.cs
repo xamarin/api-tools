@@ -83,6 +83,7 @@ namespace Mono.ApiTools {
 			var tb = target.GetAttribute ("version");
 			if (sb != tb) {
 				Output.WriteLine ("<h4>Assembly Version Changed: {0} -> {1}</h4>", sb, tb);
+				Output.WriteLine ();
 			}
 
 			// ? custom attributes ?

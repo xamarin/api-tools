@@ -75,10 +75,9 @@ namespace Mono.ApiTools {
 			if (State.IgnoreNew.Any (re => re.IsMatch (addedDescription)))
 				return;
 
-			Formatter.BeginTypeAddition (Output);
-			State.Indent = 0;
+			Formatter.BeginTypeAddition ();
 			AddedInner (target);
-			Formatter.EndTypeAddition (Output);
+			Formatter.EndTypeAddition ();
 		}
 
 		public void AddedInner (XElement target)
@@ -147,7 +146,7 @@ namespace Mono.ApiTools {
 
 			Output.WriteLine (" {");
 
-			State.Indent++;
+			Formatter.IncreaseIndentation ();
 			var t = target.Element ("constructors");
 			if (t != null) {
 				Indent ().WriteLine ("// constructors");
@@ -196,7 +195,7 @@ namespace Mono.ApiTools {
 					kcomparer.AddedInner (inner);
 				State.Type = State.Parent;
 			}
-			State.Indent--;
+			Formatter.DecreaseIndentation ();
 			Indent ().WriteLine ("}");
 		}
 
@@ -217,8 +216,7 @@ namespace Mono.ApiTools {
 		public override void Modified (XElement source, XElement target, ApiChanges diff)
 		{
 			// hack - there could be changes that we're not monitoring (e.g. attributes properties)
-			var output = Output;
-			State.Output = new StringWriter ();
+			Formatter.PushOutput ();
 
 			var sb = source.GetAttribute ("base");
 			var tb = target.GetAttribute ("base");
@@ -227,10 +225,10 @@ namespace Mono.ApiTools {
 			if (sb != tb &&
 					!State.IgnoreRemoved.Any (re => re.IsMatch (rm)) &&
 					!(State.IgnoreNonbreaking && IsBaseChangeCompatible (sb, tb))) {
-				Formatter.BeginMemberModification (Output, "Modified base type");
+				Formatter.BeginMemberModification ("Modified base type");
 				var apichange = new ApiChange ($"{State.Namespace}.{State.Type}", State).AppendModified (sb, tb, true);
-				Formatter.Diff (Output, apichange);
-				Formatter.EndMemberModification (Output);
+				Formatter.Diff (apichange);
+				Formatter.EndMemberModification ();
 			}
 
 			ccomparer.Compare (source, target);
@@ -249,13 +247,14 @@ namespace Mono.ApiTools {
 				State.Type = State.Parent;
 			}
 
-			var s = (Output as StringWriter).ToString ();
-			State.Output = output;
-			if (s.Length > 0) {
-				SetContext (target);
-				Formatter.BeginTypeModification (Output);
-				Output.WriteLine (s);
-				Formatter.EndTypeModification (Output);
+			foreach (var formatter in State.Formatters) {
+				var s = formatter.PopOutput ();
+				if (s.Length > 0) {
+					SetContext (target);
+					formatter.BeginTypeModification ();
+					formatter.WriteLine (s);
+					formatter.EndTypeModification ();
+				}
 			}
 		}
 
@@ -271,8 +270,8 @@ namespace Mono.ApiTools {
 			if (State.IgnoreRemoved.Any (re => re.IsMatch (name)))
 				return;
 
-			Formatter.BeginTypeRemoval (Output);
-			Formatter.EndTypeRemoval (Output);
+			Formatter.BeginTypeRemoval ();
+			Formatter.EndTypeRemoval ();
 		}
 
 		public virtual string GetTypeName (XElement type)

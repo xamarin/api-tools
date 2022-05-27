@@ -63,28 +63,28 @@ namespace Mono.ApiTools {
 			if (State.IgnoreNew.Any (re => re.IsMatch (namespaceDescription)))
 				return;
 
-			Formatter.BeginNamespace (Output, "New ");
+			Formatter.BeginNamespace ("New ");
 			// list all new types
 			foreach (var addedType in target.Element ("classes").Elements ("class")) {
 				State.Type = addedType.Attribute ("name").Value;
 				comparer.Added (addedType, true);
 			}
-			Formatter.EndNamespace (Output);
+			Formatter.EndNamespace ();
 		}
 
 		public override void Modified (XElement source, XElement target, ApiChanges differences)
 		{
-			var output = Output;
-			State.Output = new StringWriter ();
+			Formatter.PushOutput ();
+
 			comparer.Compare (source, target);
 
-			var s = Output.ToString ();
-			State.Output = output;
-			if (s.Length > 0) {
-				var name = target.Attribute ("name").Value;
-				Formatter.BeginNamespace (Output);
-				Output.WriteLine (s);
-				Formatter.EndNamespace (Output);
+			foreach (var formatter in State.Formatters) {
+				var s = formatter.PopOutput ();
+				if (s.Length > 0) {
+					formatter.BeginNamespace ();
+					formatter.WriteLine (s);
+					formatter.EndNamespace ();
+				}
 			}
 		}
 
@@ -97,14 +97,14 @@ namespace Mono.ApiTools {
 			if (State.IgnoreRemoved.Any (re => re.IsMatch (namespaceDescription)))
 				return;
 
-			Formatter.BeginNamespace (Output, "Removed ");
+			Formatter.BeginNamespace ("Removed ");
 			Output.WriteLine ();
 			// list all removed types
 			foreach (var removedType in source.Element ("classes").Elements ("class")) {
 				State.Type = comparer.GetTypeName (removedType);
 				comparer.Removed (removedType);
 			}
-			Formatter.EndNamespace (Output);
+			Formatter.EndNamespace ();
 		}
 	}
 }
