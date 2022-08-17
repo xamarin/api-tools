@@ -166,9 +166,15 @@ namespace Mono.ApiTools {
 					if (tgtValue == null)
 						tgtValue = "null";
 
-					// Hardcode that changes to ObjCRuntime.Constants.Version aren't breaking.
+					// Hardcode that changes to ObjCRuntime.Constants.[Sdk]Version aren't breaking.
 					var fullname = GetFullName (source);
-					var breaking = fullname != "ObjCRuntime.Constants.Version";
+					var breaking = true;
+					switch (fullname) {
+					case "ObjCRuntime.Constants.Version":
+					case "ObjCRuntime.Constants.SdkVersion":
+						breaking = false;
+						break;
+					}
 					change.AppendModified (srcValue, tgtValue, breaking);
 				} else if (srcValue != null) {
 					change.Append (" = ");
