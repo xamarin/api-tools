@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using Mono.Cecil;
+using Mono.Collections.Generic;
 
 namespace Mono.ApiTools {
 
@@ -173,11 +174,16 @@ namespace Mono.ApiTools {
 			if (!TypeMatch (candidate.ReturnType, method.ReturnType))
 				return false;
 
-			if (candidate.Parameters.Count != method.Parameters.Count)
+			return ParametersMatch (candidate.Parameters, method.Parameters);
+		}
+
+		bool ParametersMatch (Collection<ParameterDefinition> a, Collection<ParameterDefinition> b)
+		{
+			if (a.Count != b.Count)
 				return false;
 
-			for (int i = 0; i < candidate.Parameters.Count; i++)
-				if (!TypeMatch (candidate.Parameters [i].ParameterType, method.Parameters [i].ParameterType))
+			for (int i = 0; i < a.Count; i++)
+				if (!TypeMatch (a [i].ParameterType, b [i].ParameterType))
 					return false;
 
 			return true;
@@ -199,7 +205,21 @@ namespace Mono.ApiTools {
 			if (a is IModifierType)
 				return TypeMatch ((IModifierType) a, (IModifierType) b);
 
+			if (a is FunctionPointerType fptA && b is FunctionPointerType fptB)
+				return TypeMatch (fptA, fptB);
+
 			return TypeMatch (a.ElementType, b.ElementType);
+		}
+
+		public bool TypeMatch (FunctionPointerType a, FunctionPointerType b)
+		{
+			if (!TypeMatch (a.ReturnType, b.ReturnType))
+				return false;
+
+			if (a.Name != b.Name)
+				return false;
+
+			return ParametersMatch (a.Parameters, b.Parameters);
 		}
 
 		public bool TypeMatch (GenericInstanceType a, GenericInstanceType b)
