@@ -51,8 +51,10 @@ namespace Mono.ApiTools {
 		void RenderFieldAttributes (FieldAttributes source, FieldAttributes target, ApiChange change)
 		{
 			if (!State.IgnoreNonbreaking) {
+#pragma warning disable SYSLIB0050 // 'FieldAttributes.NotSerialized' is obsolete: 'Formatter-based serialization is obsolete and should not be used.' (https://aka.ms/dotnet-warnings/SYSLIB0050)
 				var srcNotSerialized = (source & FieldAttributes.NotSerialized) == FieldAttributes.NotSerialized;
 				var tgtNotSerialized = (target & FieldAttributes.NotSerialized) == FieldAttributes.NotSerialized;
+#pragma warning restore SYSLIB0050
 				if (srcNotSerialized != tgtNotSerialized) {
 					// this is not a breaking change, so only render it if it changed.
 					if (srcNotSerialized) {
