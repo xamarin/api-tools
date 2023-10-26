@@ -37,13 +37,8 @@ namespace Mono.ApiTools {
 		XDocument target;
 		NamespaceComparer comparer;
 
-		public AssemblyComparer (string sourceFile, string targetFile, State state)
-			: this (XDocument.Load(sourceFile), XDocument.Load(targetFile), state)
-		{
-		}
-
-		public AssemblyComparer (Stream sourceFile, Stream targetFile, State state)
-			: this (XDocument.Load(sourceFile), XDocument.Load(targetFile), state)
+		public AssemblyComparer (State state)
+			: this (XDocument.Load(state.SourceFile), XDocument.Load(state.TargetFile), state)
 		{
 		}
 
