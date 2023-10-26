@@ -37,6 +37,7 @@ using System.IO;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Xml.Linq;
 
 namespace Mono.ApiTools {
 
@@ -58,6 +59,9 @@ namespace Mono.ApiTools {
 		public bool Lax { get; set; }
 		public bool Colorize { get; set; } = true;
 		public int Verbosity { get; set; }
+		public string SourceFile;
+		public string TargetFile;
+		public Dictionary<string, string> TargetClassHierarchyMap;
 
 		public void LogDebugMessage (string value)
 		{
@@ -180,13 +184,8 @@ namespace Mono.ApiTools {
 	public static class ApiDiffFormatted {
 		public static void Generate (string firstInfo, string secondInfo, ApiDiffFormattedConfig config = null)
 		{
-			var state = CreateState (config);
-			Generate (firstInfo, secondInfo, state);
-		}
-
-		internal static void Generate (string firstInfo, string secondInfo, State state)
-		{
-			var ac = new AssemblyComparer (firstInfo, secondInfo, state);
+			var state = CreateState (config, firstInfo, secondInfo);
+			var ac = new AssemblyComparer (state);
 			Generate (ac, state);
 		}
 
@@ -214,7 +213,7 @@ namespace Mono.ApiTools {
 			}
 		}
 
-		static State CreateState (ApiDiffFormattedConfig config)
+		static State CreateState (ApiDiffFormattedConfig config, string firstInfo, string secondInfo)
 		{
 			if (config == null)
 				config = new ApiDiffFormattedConfig ();
@@ -227,6 +226,8 @@ namespace Mono.ApiTools {
 				IgnoreNonbreaking = config.IgnoreNonbreaking,
 				IgnoreParameterNameChanges = config.IgnoreParameterNameChanges,
 				Lax = config.IgnoreDuplicateXml,
+				SourceFile = firstInfo,
+				TargetFile = secondInfo,
 
 				Verbosity = config.Verbosity
 			};
