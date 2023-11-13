@@ -101,6 +101,10 @@ namespace Mono.ApiTools {
 
 				if ((attr & MethodAttributes.Static) != 0) {
 					sb.Append ("static ");
+				} else if ((attr & MethodAttributes.Abstract) != 0) {
+					if ((attr & MethodAttributes.VtableLayoutMask) == 0)
+						sb.Append ("override ");
+					sb.Append ("abstract ");
 				} else if ((attr & MethodAttributes.Virtual) != 0) {
 					if ((attr & MethodAttributes.VtableLayoutMask) == 0)
 						sb.Append ("override ");
