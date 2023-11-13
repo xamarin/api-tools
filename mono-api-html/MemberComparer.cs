@@ -215,7 +215,9 @@ namespace Mono.ApiTools {
 			if (!first && (o.Length > 0))
 				Output.WriteLine ();
 			Indent ();
-			bool isInterfaceBreakingChange = !wasParentAdded && IsInInterface (target);
+			var isInterfaceBreakingChange = false;
+			if (!wasParentAdded)
+				isInterfaceBreakingChange = string.Equals ("true", target.Attribute ("abstract")?.Value, StringComparison.Ordinal);
 			Formatter.AddMember (this, isInterfaceBreakingChange, o.ToString (), GetDescription (target));
 			first = false;
 		}
